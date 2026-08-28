@@ -74,6 +74,44 @@ Also returns the **spectral centroid** — the centre of gravity of the spectrum
 }
 ```
 
+### `analyze_loudness`
+
+Measures perceived loudness to ITU-R BS.1770-4 and says how far the master is from each platform's target.
+
+This is the tool that answers *"is it loud enough?"*. It reports **integrated loudness** in LUFS — the single number Spotify, YouTube and Apple Music normalize against — plus momentary and short-term maxima, the **loudness range** (how much the track breathes between its quiet and loud sections, per EBU Tech 3342), and the **true peak** in dBTP measured on a 4x oversampled signal, which catches inter-sample peaks that a plain sample-peak reading misses entirely.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `audio_file` | string | *required* | Path to a WAV/FLAC/AIFF file, at least 400 ms long. |
+
+```jsonc
+// analyze_loudness({"audio_file": "master.wav"})
+{
+  "integrated_lufs": -5.6,
+  "momentary_max_lufs": -5.6,
+  "short_term_max_lufs": -5.6,
+  "loudness_range_lu": 0.0,
+  "true_peak_dbtp": -0.44,
+  "gating": { "blocks_total": 77, "blocks_used": 77,
+              "absolute_gate_lufs": -70.0, "relative_gate_lu": -10.0 },
+  "platform_targets": [
+    { "platform": "Spotify", "target_lufs": -14.0, "difference_lu": 8.4, "action": "turn down 8.4 LU" }
+  ],
+  "verdict": "Integrated loudness is -5.6 LUFS. That is very loud: streaming platforms will turn it down, and the limiting needed to get there usually costs transient punch. True peak reaches -0.44 dBTP, above the -1 dBTP ceiling recommended for lossy encoding...",
+  "standard": "ITU-R BS.1770-4 (K-weighting + two-stage gating); LRA per EBU Tech 3342"
+}
+```
+
+#### How the measurement is implemented
+
+The standard is implemented rather than approximated, which is worth spelling out because the details are where loudness meters usually go wrong:
+
+- **K-weighting.** Two cascaded biquads: a high shelf modelling the head as an acoustic obstacle, then a high-pass discarding low frequencies that contribute little to perceived loudness. BS.1770-4 tabulates these coefficients **for 48 kHz only**. The widely-used "audio EQ cookbook" shelf formula does *not* reproduce that table — it is off by 3.6%, because the standard starts from a different analog prototype. So instead of guessing a formula, this implementation takes the tabulated coefficients, recovers the underlying analog filter by inverting the bilinear transform on its poles and zeros, and re-discretizes it at whatever sample rate the file uses. At 48 kHz the result is bit-identical to the table; at 44.1 kHz the frequency response matches to within 0.003 dB.
+- **Gated measurement.** 400 ms blocks at 75% overlap, then the two-stage gate: absolute at -70 LUFS, then relative at 10 LU below the ungated mean. The relative gate is the step naive implementations skip, and without it any track with quiet passages reads several LU too low. Block powers are averaged, never decibels.
+- **Calibration.** A 1 kHz sine at -23 dBFS RMS reads exactly -23.0 LUFS, which is the calibration point the standard defines.
+
+Cross-checked against `pyloudnorm`, an independent implementation, across sine, noise and gated program material at both 44.1 and 48 kHz: the readings agree to within a constant 0.043 LU. That offset is fully accounted for — it is the passband gain of the standard's own high-pass coefficients (`b = [1, -2, 1]` against that denominator gives exactly 0.04328 dB), which this implementation keeps and `pyloudnorm` normalizes away.
+
 ### Error handling
 
 Input problems — a missing file, an unreadable format, a parameter out of range — come back as a normal MCP tool error (`is_error: true`) carrying a message meant to be read by a human:
@@ -85,7 +123,7 @@ Error executing tool detect_clipping: threshold_dbfs must be 0 or negative (dBFS
 
 ### Roadmap
 
-`analyze_loudness` (ITU-R BS.1770-4 integrated LUFS, loudness range and true peak), `detect_frequency_masking`, `analyze_phase_correlation` and `compare_to_reference` are in progress.
+`detect_frequency_masking`, `analyze_phase_correlation` and `compare_to_reference` are in progress.
 
 ## Requirements
 
