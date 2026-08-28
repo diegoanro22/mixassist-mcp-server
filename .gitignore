@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+.DS_Store
+
+# Audio de prueba generado por los tests (se regenera, no se versiona)
+tests/fixtures/*.wav

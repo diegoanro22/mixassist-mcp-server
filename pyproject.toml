@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mixassist-mcp"
+version = "0.1.0"
+description = "MCP server that analyzes audio mixes: loudness (ITU-R BS.1770), spectral balance, clipping, stereo phase and inter-stem masking"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Diego Rosales" }]
+keywords = ["mcp", "model-context-protocol", "audio", "dsp", "loudness", "lufs", "mixing", "mastering"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio :: Analysis",
+]
+dependencies = [
+    "mcp>=2.0",
+    "numpy>=2.0",
+    "scipy>=1.14",
+    "soundfile>=0.13",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+mixassist-mcp = "mixassist_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mixassist_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
