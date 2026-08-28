@@ -22,6 +22,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from . import __version__
 from .dsp import clipping as clipping_dsp
+from .dsp import loudness as loudness_dsp
 from .dsp import spectrum as spectrum_dsp
 from .dsp.audio import AudioError, load_audio
 
@@ -128,6 +129,35 @@ def analyze_spectrum(
     with _user_errors():
         samples, samplerate = load_audio(audio_file)
         return spectrum_dsp.analyze_spectrum(samples, samplerate, window_size=window_size)
+
+
+@server.tool()
+def analyze_loudness(audio_file: str) -> dict:
+    """Measure perceived loudness to ITU-R BS.1770-4 and compare it to platform targets.
+
+    Returns integrated loudness in LUFS (the number streaming services
+    normalize against), the momentary and short-term maxima, the loudness range
+    in LU, and the true peak in dBTP measured on a 4x oversampled signal — so
+    it catches inter-sample peaks that a plain sample-peak reading misses.
+
+    The measurement implements the standard rather than approximating it:
+    K-weighting filters taken from the specification's coefficient tables, 400 ms
+    blocks at 75% overlap, and the two-stage gating (absolute at -70 LUFS, then
+    relative at -10 LU below the ungated mean) that stops quiet passages from
+    dragging the reading down.
+
+    Also reports, per platform (Spotify, YouTube, Apple Music, Amazon, Tidal,
+    club playback), how many LU the master would have to move to hit target.
+
+    Use it for questions about level and release readiness. For tonal balance
+    use analyze_spectrum; for distortion from over-driving, detect_clipping.
+
+    Args:
+        audio_file: Path to a WAV/FLAC/AIFF file. Must be at least 400 ms long.
+    """
+    with _user_errors():
+        samples, samplerate = load_audio(audio_file)
+        return loudness_dsp.analyze_loudness(samples, samplerate)
 
 
 def main() -> None:
