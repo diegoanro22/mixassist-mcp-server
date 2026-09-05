@@ -189,10 +189,10 @@ def main() -> None:
     if args.transport == "stdio":
         server.run(transport="stdio")
     else:
-        # host/port solo aplican a los transportes de red; el SDK los ignora en stdio.
-        server.settings.host = args.host
-        server.settings.port = args.port
-        server.run(transport=args.transport)
+        # host y port van como kwargs de run(), que los reenvía al transporte.
+        # En el SDK 1.x vivían en server.settings; en el 2.x esos campos ya no
+        # existen y asignarlos revienta con ValueError antes de escuchar nada.
+        server.run(transport=args.transport, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
